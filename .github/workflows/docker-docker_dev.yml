@@ -11,6 +11,9 @@ env:
 jobs:
   image_build-and-deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout repo
