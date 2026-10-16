@@ -2,5 +2,26 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "config:recommended"
+  ],
+  "baseBranchPatterns": [
+    "main"
+  ],
+  "useBaseBranchConfig": "merge",
+  "reviewers": ["ghdrope"],
+  "labels": ["renovate"],
+  "packageRules": [
+    {
+      "reviewers": ["ghdrope"],
+      "matchPackageNames": [
+        "*"
+      ]
+    },
+    {
+      "matchFileNames": [
+        ".github/workflows/**"
+      ],
+      "groupName": "GitHub Workflows",
+      "commitMessageTopic": "GitHub Workflows"
+    }
   ]
 }
