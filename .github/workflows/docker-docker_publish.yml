@@ -55,8 +55,11 @@ jobs:
 
             # major.minor
             if [[ "$CLEAN_TAG" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+(-patch[0-9]+)?$ ]]; then
+              MAJOR="${BASH_REMATCH[1]}"
               MM="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
-              TAGS="$TAGS,${IMAGE}:${MM}"
+              
+              TAGS="$TAGS,${IMAGE}:${MAJOR},${IMAGE}:${MM}"
+              echo "➕ Adding major tag: $MAJOR"
               echo "➕ Adding major.minor tag: $MM"
             fi
           fi
