@@ -1,0 +1,9 @@
+# Exclude build files from language statistics
+Makefile linguist-detectable=false
+*.mk linguist-detectable=false
+
+# Prioritize YAML files
+*.yml linguist-detectable=true
+*.yaml linguist-detectable=true
+*.yml linguist-language=YAML
+*.yaml linguist-language=YAML
