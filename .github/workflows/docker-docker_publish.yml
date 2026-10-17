@@ -2,6 +2,11 @@ name: Docker - Docker Publish
 
 on:
   workflow_call:
+    inputs:
+      components:
+        required: false
+        type: string
+        default: '[]'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -14,6 +19,10 @@ jobs:
       contents: read
       packages: write
 
+    strategy:
+      matrix:
+        component: ${{ inputs.components != '[]' && fromJSON(inputs.components) || fromJSON('[""]') }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
@@ -22,13 +31,14 @@ jobs:
 
       - name: Prepare tags and metadata
         id: prep
+        env:
+          IMAGE: ghcr.io/${{ github.repository }}${{ matrix.component != '' && format('-{0}', matrix.component) || '' }}
         run: |
+
           IMG_TAG=${GITHUB_REF_NAME}
 
           # Remove "v" prefix if exists
           CLEAN_TAG=${IMG_TAG#v}
-
-          IMAGE=${{ env.REGISTRY }}/${{ github.repository }}
 
           TAGS="${IMAGE}:${CLEAN_TAG}"
 
@@ -61,10 +71,10 @@ jobs:
         id: meta
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}${{ matrix.component != '' && format('-{0}', matrix.component) || '' }}
           labels: |
-            org.opencontainers.image.title=${{ github.repository }}
-            org.opencontainers.image.description=An image with ${{ github.repository }} binary installed
+            org.opencontainers.image.title=${{ github.repository }}${{ matrix.component != '' && format('-{0}', matrix.component) || '' }}
+            org.opencontainers.image.description=An image with ${{ github.repository }}${{ matrix.component != '' && format('-{0}', matrix.component) || '' }} binary installed
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ env.BUILD_DATE }}
@@ -98,6 +108,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
+            COMPONENT=${{ matrix.component }}
             VERSION=${{ env.VERSION }}
             BUILD_DATE=${{ env.BUILD_DATE }}
             GIT_COMMIT=${{ github.sha }}

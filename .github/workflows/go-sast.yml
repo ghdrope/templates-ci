@@ -2,6 +2,11 @@ name: Go - SAST
 
 on:
   workflow_call:
+    inputs:
+      multi_component:
+        required: false
+        type: boolean
+        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -31,7 +36,12 @@ jobs:
           languages: go
         
       - name: Autobuild
-        run: make build
+        run: |
+          if [[ "${{ inputs.multi_component }}" == "true" ]]; then
+            make build-all
+          else
+            make build
+          fi
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v4

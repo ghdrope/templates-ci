@@ -2,6 +2,11 @@ name: Docker - Docker Dev
 
 on:
   workflow_call:
+    inputs:
+      component:
+        required: false
+        type: string
+        default: ''
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -28,12 +33,12 @@ jobs:
         id: metadata
         uses: docker/metadata-action@v6
         with:
-          images: ${{ env.REGISTRY }}/${{ github.repository }}
+          images: ghcr.io/${{ github.repository }}${{ inputs.component != '' && format('-{0}', inputs.component) || '' }}
           tags: |
             type=raw, value=dev
           labels: |
-            org.opencontainers.image.title=${{ github.repository }}
-            org.opencontainers.image.description=An image with ${{ github.repository }} binary installed
+            org.opencontainers.image.title=${{ github.repository }}${{ inputs.component != '' && format('-{0}', inputs.component) || '' }}
+            org.opencontainers.image.description=An image with ${{ github.repository }}${{ inputs.component != '' && format('-{0}', inputs.component) || '' }} binary installed
             org.opencontainers.image.source=${{ github.repositoryUrl }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ env.BUILD_DATE }}
@@ -67,6 +72,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha, mode=max
           build-args: |
+            COMPONENT=${{ inputs.component }}
             VERSION=development
             BUILD_DATE=${{ env.BUILD_DATE }}
             GIT_COMMIT=${{ github.sha }}
