@@ -4,15 +4,11 @@ The integration of [Renovate](https://www.mend.io/renovate/) in the projects bri
 
 `ci-templates` centralized now the used workflows as callable templates. It reduces effort to maintain, and acts a single point for troubleshooting reference.
 
-## The Latest Tag
+## The Usage of Main Branch
 
 Calling the templates through the available semantic versioning tag would keep the before mentioned problem happening. Renovate MRs would stop addressing directly dependency updates, but would turn out to be for `ci-templates` reference.
 
-To deal with this calling repositories should use the reference `latest`.
-
-### Recreate `latest`
-
-Every time a new release is created `latest` tag should be recreated.
+To deal with this calling repositories should use the reference `main`.
 
 ## Usage Examples
 
