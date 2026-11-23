@@ -1,0 +1,60 @@
+# Validates the templates in this repository. Callers use `@main`,
+# so a broken template would break every project at once.
+name: Lint Templates
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # renovate: datasource=github-releases depName=rhysd/actionlint
+  ACTIONLINT_VERSION: v1.7.12
+  # renovate: datasource=pypi depName=zizmor
+  ZIZMOR_VERSION: 1.33.1
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: stable
+          cache: false
+
+      - name: Run actionlint
+        run: |
+          go install "github.com/rhysd/actionlint/cmd/actionlint@${ACTIONLINT_VERSION}"
+          "$(go env GOPATH)/bin/actionlint" -color
+
+  zizmor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run zizmor (GitHub Actions security audit)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: pipx run "zizmor==${ZIZMOR_VERSION}" --format=github --config .github/zizmor.yml .github/workflows

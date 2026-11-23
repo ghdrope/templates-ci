@@ -1,21 +1,22 @@
-# ci-templates
+# templates-ci
 
-The integration of [Renovate](https://www.mend.io/renovate/) in the projects bring along a series of merge requests (MRs). These turn out to be repetitive as the CI workflows were setup similarly, leading to frequent repetitive maintaining tasks in each of the repositories.
+Using [Renovate](https://www.mend.io/renovate/) in my projects brought a lot of repetitive merge requests, since the CI workflows were all set up the same way.
 
-`ci-templates` centralized now the used workflows as callable templates. It reduces effort to maintain, and acts a single point for troubleshooting reference.
+`templates-ci` keeps those workflows in one place as reusable templates, so there is less to maintain and one place to look when something breaks.
 
-## The Usage of Main Branch
+## Why `main`
 
-Calling the templates through the available semantic versioning tag would keep the before mentioned problem happening. Renovate MRs would stop addressing directly dependency updates, but would turn out to be for `ci-templates` reference.
+Calling the templates by a version tag would just move the problem: Renovate would open MRs to bump the `templates-ci` reference instead. So projects call the templates with `@main`.
 
-To deal with this calling repositories should use the reference `main`.
+## Templates
+
+- `go-feat_ci_push.yml`: tidy check, lint, format check, unit tests
+- `go-sast.yml`: CodeQL and govulncheck
+- `go-dev_binary_publish.yml` / `go-binary_publish.yml`: dev / release binaries
+- `docker-docker_dev.yml` / `docker-docker_publish.yml`: dev / release images
+- `helm-feat_cd_push.yml`: Helm lint and template
 
 ## Usage Examples
 
-### Single Component Project
-
-- [wis2-ingest Workflows](https://github.com/ghdrope/wis2-ingest/tree/1.5.8/.github/workflows)
-
-### Multi Component Project
-
-- [Court Workflows](https://github.com/ghdrope/court/tree/0.0.16/.github/workflows)
+- Single component: [wis2-ingest](https://github.com/ghdrope/wis2-ingest/tree/1.5.8/.github/workflows)
+- Multi component: [court](https://github.com/ghdrope/court/tree/0.0.16/.github/workflows)

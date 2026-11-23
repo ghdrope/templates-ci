@@ -1,0 +1,8 @@
+# Actions are referenced by version tag (e.g. `@v7`), not by commit SHA.
+rules:
+  superfluous-actions:
+    disable: true
+  unpinned-uses:
+    config:
+      policies:
+        "*": ref-pin
