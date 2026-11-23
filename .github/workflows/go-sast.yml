@@ -4,9 +4,15 @@ on:
   workflow_call:
     inputs:
       multi_component:
+        description: Build with `make build-all` instead of `make build`.
         required: false
         type: boolean
         default: false
+      go_version_file:
+        description: File that defines the Go version (go.mod or .go-version).
+        required: false
+        type: string
+        default: go.mod
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -15,29 +21,36 @@ jobs:
   codeql-analysis:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       security-events: write
-  
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
-      
+          persist-credentials: false
+
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 1.27.4
+          go-version-file: ${{ inputs.go_version_file }}
+          cache: true
+          cache-dependency-path: go.sum
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v4
         with:
           languages: go
-        
-      - name: Autobuild
+          build-mode: manual
+
+      - name: Build
+        env:
+          MULTI_COMPONENT: ${{ inputs.multi_component }}
         run: |
-          if [[ "${{ inputs.multi_component }}" == "true" ]]; then
+          if [[ "$MULTI_COMPONENT" == "true" ]]; then
             make build-all
           else
             make build
@@ -51,6 +64,7 @@ jobs:
   dependency-check:
     name: GoVulnCheck Scan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
 
@@ -59,17 +73,16 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 1.27.4
+          go-version-file: ${{ inputs.go_version_file }}
           cache: true
           cache-dependency-path: go.sum
 
-      - name: Install jq (needed for parsing report)
-        run: sudo apt-get update && sudo apt-get install -y jq
-
+      # jq (used by the Makefile to parse the report) is preinstalled on ubuntu runners.
       - name: Run govulncheck via Makefile
         run: make check-vulnerability
 
@@ -79,3 +92,4 @@ jobs:
         with:
           name: govulncheck-report
           path: .reports/pipelines/security/govulncheck-report.json
+          if-no-files-found: warn

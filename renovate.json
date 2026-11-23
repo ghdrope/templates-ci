@@ -9,13 +9,19 @@
   "useBaseBranchConfig": "merge",
   "reviewers": ["ghdrope"],
   "labels": ["renovate"],
-  "packageRules": [
+  "customManagers": [
     {
-      "reviewers": ["ghdrope"],
-      "matchPackageNames": [
-        "*"
+      "customType": "regex",
+      "description": "Tool versions pinned in workflow env vars with a `# renovate:` comment",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+\\w+_VERSION: (?<currentValue>\\S+)"
       ]
-    },
+    }
+  ],
+  "packageRules": [
     {
       "matchFileNames": [
         ".github/workflows/**"

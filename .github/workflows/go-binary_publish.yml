@@ -2,6 +2,27 @@ name: Go - Binary Publish
 
 on:
   workflow_call:
+    inputs:
+      go_version_file:
+        description: File that defines the Go version (go.mod or .go-version).
+        required: false
+        type: string
+        default: go.mod
+      main_package:
+        description: Go package (path) of the main binary.
+        required: false
+        type: string
+        default: ./cmd
+      version_package:
+        description: Go package that holds the Version, GitCommit and BuildDate variables.
+        required: false
+        type: string
+        default: github.com/ghdrope/go-version
+      platforms:
+        description: Space separated list of GOOS/GOARCH targets.
+        required: false
+        type: string
+        default: linux/amd64 linux/arm64
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -10,6 +31,7 @@ env:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write # Required to create releases and upload release assets
 
@@ -18,55 +40,80 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 1
+          persist-credentials: false
 
       - name: Set up Go
         uses: actions/setup-go@v7
         with:
-          go-version: 1.27.4
-          cache: true
-          cache-dependency-path: go.sum
+          go-version-file: ${{ inputs.go_version_file }}
+          cache: false
 
       - name: Prepare release version and metadata
         id: prep
         run: |
-          TAG_NAME=${GITHUB_REF_NAME}
-          CLEAN_TAG=${TAG_NAME#v}
+          CLEAN_TAG="${GITHUB_REF_NAME#v}"
 
-          # Check if the ref corresponds to a Release Candidate (-rc)
-          if [[ "$CLEAN_TAG" =~ -rc[0-9]+$ ]]; then
-            echo "⚡ RC build detected"
-            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
-          else
-            echo "✅ Release build detected"
-            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+          if [[ ! "$CLEAN_TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc[0-9]+|-patch[0-9]+)?$ ]]; then
+            echo "::error::'${GITHUB_REF_NAME}' is not a release version (X.Y.Z, X.Y.Z-rcN or X.Y.Z-patchN)."
+            exit 1
           fi
 
-          echo "VERSION=$CLEAN_TAG" >> $GITHUB_ENV
+          if [[ "$CLEAN_TAG" =~ -rc[0-9]+$ ]]; then
+            echo "⚡ RC build detected"
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "✅ Release build detected"
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo "version=$CLEAN_TAG"
+            echo "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download dependencies
-        run: go mod tidy
+        run: go mod download
 
       - name: Compile binaries
+        env:
+          VERSION: ${{ steps.prep.outputs.version }}
+          BUILD_DATE: ${{ steps.prep.outputs.build_date }}
+          MAIN_PACKAGE: ${{ inputs.main_package }}
+          VERSION_PACKAGE: ${{ inputs.version_package }}
+          PLATFORMS: ${{ inputs.platforms }}
         run: |
+          # Fail early if the version package is not part of the build,
+          # otherwise -X is silently ignored and binaries report no version.
+          go list "$VERSION_PACKAGE" > /dev/null
+
+          LDFLAGS="-s -w \
+            -X '${VERSION_PACKAGE}.Version=${VERSION}' \
+            -X '${VERSION_PACKAGE}.GitCommit=${GITHUB_SHA}' \
+            -X '${VERSION_PACKAGE}.BuildDate=${BUILD_DATE}'"
+
           mkdir -p dist
+          for platform in $PLATFORMS; do
+            os="${platform%/*}"
+            arch="${platform#*/}"
+            echo "🔨 Building ${os}/${arch}"
+            GOOS="$os" GOARCH="$arch" CGO_ENABLED=0 go build -trimpath \
+              -ldflags="$LDFLAGS" \
+              -o "dist/${PROJECT_NAME}-${os}-${arch}" "$MAIN_PACKAGE"
+          done
 
-          # Build for Linux amd64
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build \
-            -ldflags="-s -w -X main.version=${{ env.VERSION }}" \
-            -o "dist/${{ env.PROJECT_NAME }}-linux-amd64" ./cmd/...
+          (cd dist && sha256sum -- * > sha256sums.txt)
+          cat dist/sha256sums.txt
 
-          # Build for Linux arm64
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build \
-            -ldflags="-s -w -X main.version=${{ env.VERSION }}" \
-            -o "dist/${{ env.PROJECT_NAME }}-linux-arm64" ./cmd/...
-
-      - name: Create or Update GitHub Release
+      - name: Create or update GitHub release
         uses: softprops/action-gh-release@v3
         with:
           files: dist/*
+          fail_on_unmatched_files: true
           tag_name: ${{ github.ref_name }}
-          name: Release ${{ env.VERSION }}
-          prerelease: ${{ steps.prep.outputs.IS_PRERELEASE == 'true' }}
+          # Without this a missing tag (RC branches) is created from the default branch.
+          target_commitish: ${{ github.sha }}
+          name: Release ${{ steps.prep.outputs.version }}
+          prerelease: ${{ steps.prep.outputs.is_prerelease == 'true' }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
